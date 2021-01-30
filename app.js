@@ -1,118 +1,59 @@
-const http = require('http');
-const fs = require('fs');
-const ejs = require('ejs');
-const url = require('url');
-const qs = require('querystring');
-const express = require('express')
-const mysql = require('mysql')
-const app = express()
-const Sequelize = require('sequelize');
+var createError = require('http-errors');
+var express = require('express');
+var path = require('path');
+var cookieParser = require('cookie-parser');
+var logger = require('morgan');
 
-const index_page = fs.readFileSync('./index.ejs', 'utf8');
-const other_page = fs.readFileSync('./other.ejs', 'utf8'); //★追加
-const style_css = fs.readFileSync('./style.css', 'utf8');
-const login_page = fs.readFileSync('./login.ejs', 'utf8');
+var indexRouter = require('./routes/index');
+var usersRouter = require('./routes/users');
+var helloRouter = require('./routes/hello');
 
-const max_num = 10; // 最大保管数
-const filename = 'mydata.txt'; // データファイル名
-var message_data; // データ
-readFromFile(filename);
+const session = require('express-session'); 
 
-var server = http.createServer(getFromClient);
+var app = express();
 
-server.listen(3000);
-console.log('Server start!');
+// view engine setup
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
 
-// ここまでメインプログラム==========
+app.use(logger('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// createServerの処理
-function getFromClient(request, response) {
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
+app.use('/hello', helloRouter);
 
-  var url_parts = url.parse(request.url, true);
-  switch (url_parts.pathname) {
+// catch 404 and forward to error handler
+app.use(function(req, res, next) {
+  next(createError(404));
+});
 
-    case '/': // トップページ（メッセージボード）
-      response_index(request, response);
-      break;
+var session_opt = {
+    secret: 'keyboard cat',
+    resave: false,
+    saveUninitialized: false, 
+    cookie: { maxAge: 60 * 60 * 1000 }
+};
+app.use(session(session_opt));
+  
 
-    case '/login': // ログインページ
-      response_login(request, response);
-      break;
+// error handler
+app.use(function(err, req, res, next) {
+  // set locals, only providing error in development
+  res.locals.message = err.message;
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-    default:
-      response.writeHead(200, { 'Content-Type': 'text/plain' });
-      response.end('no page...');
-      break;
-  }
-}
+  // render the error page
+  res.status(err.status || 500);
+  res.render('error');
+});
 
-// loginのアクセス処理
-function response_login(request, response) {
-  var content = ejs.render(login_page, {});
-  response.writeHead(200, { 'Content-Type': 'text/html' });
-  response.write(content);
-  response.end();
-}
-
-// indexのアクセス処理
-function response_index(request, response) {
-  // POSTアクセス時の処理
-  if (request.method == 'POST') {
-    var body = '';
-
-    // データ受信のイベント処理
-    request.on('data', function (data) {
-      body += data;
-    });
-
-    // データ受信終了のイベント処理
-    request.on('end', function () {
-      data = qs.parse(body);
-      addToData(data.id, data.msg, filename, request);
-      write_index(request, response);
-    });
-  } else {
-    write_index(request, response);
-  }
-}
-
-// indexのページ作成
-function write_index(request, response) {
-  var msg = "※何かメッセージを書いて下さい。";
-  var content = ejs.render(index_page, {
-    title: 'Index',
-    content: msg,
-    data: message_data,
-    filename: 'data_item',
-  });
-  response.writeHead(200, { 'Content-Type': 'text/html' });
-  response.write(content);
-  response.end();
-}
-
-// テキストファイルをロード
-function readFromFile(fname) {
-  fs.readFile(fname, 'utf8', (err, data) => {
-    message_data = data.split('\n');
+app.listen(3000, () => {
+    console.log('Start server port:3000')
   })
-}
 
-// データを更新
-function addToData(id, msg, fname, request) {
-  var obj = { 'id': id, 'msg': msg };
-  var obj_str = JSON.stringify(obj);
-  console.log('add data: ' + obj_str);
-  message_data.unshift(obj_str);
-  if (message_data.length > max_num) {
-    message_data.pop();
-  }
-  saveToFile(fname);
-}
 
-// データを保存
-function saveToFile(fname) {
-  var data_str = message_data.join('\n');
-  fs.writeFile(fname, data_str, (err) => {
-    if (err) { throw err; }
-  });
-}
+module.exports = app;
