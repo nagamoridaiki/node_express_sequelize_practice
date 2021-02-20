@@ -1,5 +1,6 @@
 var createError = require('http-errors');
 var express = require('express');
+const session = require('express-session'); 
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
@@ -7,10 +8,17 @@ var logger = require('morgan');
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var helloRouter = require('./routes/hello');
-
-const session = require('express-session'); 
+var boardsRouter = require('./routes/boards');
 
 var app = express();
+
+var session_opt = {
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: false, 
+  cookie: { maxAge: 60 * 60 * 1000 }
+};
+app.use(session(session_opt));
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -25,19 +33,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/hello', helloRouter);
+app.use('/boards', boardsRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   next(createError(404));
 });
-
-var session_opt = {
-    secret: 'keyboard cat',
-    resave: false,
-    saveUninitialized: false, 
-    cookie: { maxAge: 60 * 60 * 1000 }
-};
-app.use(session(session_opt));
   
 
 // error handler
